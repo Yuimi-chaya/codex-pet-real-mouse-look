@@ -1,0 +1,6 @@
+interface:
+  display_name: "Codex 桌宠真实鼠标跟随"
+  short_description: "安全检查并安装 Windows V2 桌宠鼠标跟随补丁"
+  default_prompt: "Use $codex-pet-real-mouse-look to inspect compatibility, explain risks, and dry-run the standalone pet patch before asking to install."
+policy:
+  allow_implicit_invocation: true

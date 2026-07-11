@@ -1,0 +1,8 @@
+build/
+dist/
+*.msix
+*.cer
+*.pfx
+*.log
+CANCEL-DELAYED-INSTALL*
+.audit-output/
