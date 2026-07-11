@@ -128,6 +128,11 @@ function Invoke-PatchAppAsar {
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
     $text = [System.IO.File]::ReadAllText($file.FullName, $utf8NoBom)
     if ($text.Contains('realMouseLookLastMoveMs') -and $text.Contains('h=o<=480&&Date.now()-this.realMouseLookLastMoveMs<=1400&&!u')) {
+      $existingConstructorCount = ($text.Split(@($constructorPatch), [System.StringSplitOptions]::None).Length - 1)
+      $existingSenderCount = ($text.Split(@($senderPatch), [System.StringSplitOptions]::None).Length - 1)
+      if ($existingConstructorCount -ne 1 -or $existingSenderCount -ne 1) {
+        Fail "existing pet patch target mismatch in $($file.FullName): constructor=$existingConstructorCount sender=$existingSenderCount"
+      }
       $patchedFile = $file.FullName
       Write-Log "pet real mouse look patch already present: $patchedFile"
       break

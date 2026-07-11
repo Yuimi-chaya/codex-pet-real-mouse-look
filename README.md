@@ -6,18 +6,30 @@ This project patches the Windows Codex App package so v2 pets can look toward th
 
 ## 先读这里 / Read first
 
-- 这是独立脚本项目，**不需要安装 Codex++**。
+- 这是一个独立的 Windows Codex App 桌宠补丁项目。
 - 它会复制、修改、重新签名并重新安装 Codex App 的 MSIX 包。
 - 微软商店更新会覆盖补丁；每个新 App 版本都必须重新审计兼容性。
 - 脚本会在安装前生成原包回滚 MSIX，但任何包体修改仍有风险。
 - 真实鼠标转头只适用于 `pet.json` 包含 `"spriteVersionNumber": 2` 的宠物；V1 没有 16 方向转头素材。
 - 当前已审计版本：`26.707.3748.0`。版本不匹配时默认停止。
 
-This is a standalone package patch, not the Codex++ integration. It modifies and re-signs the installed package. Store updates remove the patch, and unaudited App versions are rejected by default.
+This project modifies and re-signs the installed Codex App package. Store updates remove the patch, and unaudited App versions are rejected by default.
+
+### App 版本与已有补丁 / App version and existing patches
+
+- 版本检查读取已安装 MSIX 清单版本。重签名或已有补丁通常不会改变版本号，因此不会仅因“已经打过补丁”而失败。
+- `DryRun` 还会检查实际 ASAR 中的 constructor/sender 文本目标签名。当前项目的已知旧版鼠标补丁可以升级；如果其他补丁改动了同一段代码，脚本会停止，避免覆盖未知修改。
+- “已审计”不等于“商店最新版本”。未知版本必须先更新兼容矩阵和目标签名。
 
 ## 推荐使用方式 / Recommended workflow
 
-普通用户建议把整个仓库交给一个 **不依赖当前 Codex App 会话的 Agent** 执行，例如其他 IDE/终端 Agent。因为安装过程需要退出并替换 Codex App，让 Codex 自己重启自己不够稳定。
+普通用户建议把整个仓库交给一个 **不依赖当前 Codex App 会话的 Agent** 执行，例如其他 IDE/终端 Agent。安装过程会关闭并替换 Codex App，让正在被替换的 Codex 自己执行会中断当前会话和工具连接，最终状态也更难确认。
+
+如果当前 Agent 就运行在 Codex App 内，它必须在执行任何脚本前停下来说明风险，并按以下顺序提供选择：
+
+1. 推荐改用独立 Agent；用户愿意时，协助安装、配置并说明如何把本仓库交给它。
+2. 给出完整命令，让用户在保存说明后自行从 PowerShell 运行。
+3. 只有用户明确坚持、确认理解会话中断和包体重装风险后，才使用本仓库的 60 秒延时自运行模式。
 
 Give the repository to an agent that does not depend on the running Codex App. Ask it to use the bundled Skill:
 
@@ -72,13 +84,13 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\rollback-code
 
 ## Codex 自助延时模式 / Delayed self-install
 
-只有在用户明确确认风险、但无法自行退出后运行命令时才使用。默认等待 180 秒，并继续等待 Codex 完全退出；不会强杀 Codex。
+只有在独立 Agent 和用户手动执行都不可行，而且用户明确要求 Codex 自己完成时才使用。调度后等待 60 秒，先请求 Codex/ChatGPT 正常退出；仍未退出的残留进程会被结束，然后才开始打包和安装。补丁命令行窗口会保持可见。
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\start-delayed-install.ps1" -DelaySeconds 180 -ConfirmedByUser
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\start-delayed-install.ps1" -DelaySeconds 60 -ConfirmedByUser -AutoCloseCodexAcknowledged
 ```
 
-取消：创建调度命令输出的唯一 `CANCEL-DELAYED-INSTALL-<任务 ID>` 文件。脚本在延时期间、等待 Codex 退出期间和安装前都会检查它；若 Codex 10 分钟内没有完全退出，安装自动取消。
+调度后，Agent 的最后一段回复必须明确告诉用户：**60 秒后会自动关闭 Codex App 并开始打补丁；期间不要关闭弹出的命令行窗口。** 同时给出调度命令输出的唯一取消文件路径。若失败，窗口会显示同次 `*_original-backup.msix` 对应的完整回滚命令；不要凭文件名猜测其他备份。
 
 ## 行为 / Behavior
 
@@ -87,12 +99,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\start-delayed
 - 鼠标离开宠物但仍在附近：恢复看向鼠标。
 - 拖拽或 Computer Use 光标活跃：原生行为优先。
 
-## 项目边界 / Project boundary
+## 项目范围 / Project scope
 
-- 本仓库：面向不安装 Codex++ 的用户，修改 Codex App 包体。
-- Codex++ PR：免改包的 launcher/CDP 集成，是另一个项目和发布路径。
-
-两者不能混用安装说明、风险声明或回滚方式。
+本仓库只处理 Windows Codex App V2 桌宠真实鼠标跟随及其安全安装、验证和回滚流程，不修改用户的宠物图片或对话数据。
 
 ## License
 

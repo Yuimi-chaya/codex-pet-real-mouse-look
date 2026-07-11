@@ -8,6 +8,8 @@
 
 An audited version is not necessarily the latest Microsoft Store version. Verify latest status separately. Unknown versions stop by default until a maintainer audits the main-process constructor and sender signatures, updates tests, and performs install/rollback validation.
 
+The version gate reads the installed package manifest. Re-signing or patching an App normally leaves that version unchanged and does not fail this gate by itself. DryRun separately validates the live ASAR constructor/sender text target signatures: known earlier revisions of this mouse-look patch can be upgraded, while an unrelated patch touching the same constructor/sender must stop for maintainer review.
+
 ## Pet format
 
 The patch requires at least one manifest at:

@@ -25,7 +25,15 @@ $required = @{
   )
   $delayed = @(
     'CANCEL-DELAYED-INSTALL-$taskId',
-    "if (Test-Path -LiteralPath '"
+    '[int]$DelaySeconds = 60',
+    '[switch]$AutoCloseCodexAcknowledged',
+    '[switch]$GenerateOnly',
+    'CloseMainWindow()',
+    'Stop-Process -Force',
+    'delayed-$taskId',
+    '$backups.Count -eq 1',
+    'Rollback command for this run:',
+    '-WindowStyle Normal'
   )
 }
 
@@ -42,9 +50,28 @@ $forbiddenPatterns = @(
   ('C:\Users\' + 'a1234'),
   ('.codex\skills\' + 'codex-windows-fast-patch'),
   ('Remove-AppxPackage -Package $existing.PackageFullName ' + '-ErrorAction Stop'),
-  ('Cert:\Local' + 'Machine'),
-  ('Stop-Process ' + '-Force')
+  ('Cert:\Local' + 'Machine')
 )
+
+foreach ($path in @($base, $rollback)) {
+  $text = Get-Content -LiteralPath $path -Raw -Encoding UTF8
+  if ($text.Contains('Stop-Process -Force')) {
+    throw "Only the explicitly confirmed delayed self-install may force-close Codex: $path"
+  }
+}
+
+$codexPlusPlusName = 'Codex' + '++'
+Get-ChildItem -LiteralPath $root -Recurse -File |
+  Where-Object {
+    $_.FullName -notlike '*\.git\*' -and
+    $_.FullName -notlike '*\.audit-output*\*'
+  } |
+  ForEach-Object {
+    $text = Get-Content -LiteralPath $_.FullName -Raw -ErrorAction SilentlyContinue
+    if ($null -ne $text -and $text.Contains($codexPlusPlusName)) {
+      throw "Unrelated project reference found in standalone repository: $($_.FullName)"
+    }
+  }
 
 $baseText = Get-Content -LiteralPath $base -Raw -Encoding UTF8
 foreach ($unrelated in @('Fast Mode', 'Browser Use', 'Computer Use', 'LocalPluginMarketplace', 'openai-curated-local')) {

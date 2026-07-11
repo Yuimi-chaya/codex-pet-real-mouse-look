@@ -24,4 +24,4 @@ The script copies the installed Codex package, extracts and edits `app/resources
 
 ## Delayed execution
 
-Delayed execution is a last resort for a Codex-hosted agent. It requires explicit approval, a visible delay, a cancellation path, and a clean Codex exit. It must never be registered as a startup task or run later without fresh user awareness.
+Delayed execution is a last resort for a Codex-hosted agent. It requires explicit approval for automatic App closure, a visible 60-second delay, a task-specific cancellation path, and a visible command window. The runner first requests graceful closure, then ends remaining Codex/ChatGPT processes after 15 seconds. Each task uses a unique output directory; on failure it prints a rollback command only when that directory contains exactly one original backup. It must never select an older or ambiguous backup, register itself as a startup task, or run later without fresh user awareness.

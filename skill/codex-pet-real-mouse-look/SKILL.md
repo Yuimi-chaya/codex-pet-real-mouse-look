@@ -1,6 +1,6 @@
 ---
 name: codex-pet-real-mouse-look
-description: Inspect, dry-run, install, verify, or roll back the standalone Windows Codex App v2 pet real-mouse-look MSIX patch. Use when a user wants real mouse look without Codex++, needs compatibility checks for Windows/PowerShell/App version/path/disk/tools, needs v2 pet validation, or needs a safe delayed install after Codex exits.
+description: Inspect, dry-run, install, verify, or roll back the standalone Windows Codex App v2 pet real-mouse-look MSIX patch. Use when a user needs compatibility checks for Windows, PowerShell, App version, existing package patches, paths, disk, tools, v2 pet validation, or a carefully confirmed delayed install.
 ---
 
 # Codex Pet Real Mouse Look
@@ -10,9 +10,18 @@ Treat the user as non-technical unless they demonstrate otherwise. Explain each 
 ## Boundaries
 
 - This Skill controls the standalone MSIX/ASAR patch in this repository.
-- It is not the package-free Codex++ pet PR.
 - The patch modifies, re-signs, removes, and reinstalls the Windows Codex App package. State this before requesting installation approval.
 - Prefer an agent that does not run inside the Codex App being replaced. Codex may inspect and teach, but another terminal/IDE agent should execute when available.
+
+## Mandatory Codex-host stop
+
+If you are running inside Codex App, stop before executing **any repository script**, including environment checks and DryRun. Explain that installation closes and replaces the App hosting this conversation, so the session, terminal, and status reporting can be interrupted.
+
+Offer these paths in order:
+
+1. Recommend an independent terminal/IDE agent. If the user agrees, help install and configure one using its official instructions, then explain how to open this repository and invoke this Skill there. Do not change global proxy/package-manager configuration.
+2. Give the user exact PowerShell commands to run manually after preserving the instructions.
+3. Only after the user explicitly insists on Codex self-execution and acknowledges automatic App closure, session interruption, package replacement, and rollback risk may you inspect or run scripts here. Never infer consent from the original feature request.
 
 ## Required workflow
 
@@ -58,7 +67,9 @@ Use delayed installation only when all are true:
 - rollback MSIX expectations and risks were explained
 - the user explicitly approved delayed execution
 
-Use `scripts/start-delayed-install.ps1 -ConfirmedByUser`. Default to at least 180 seconds. Tell the user the exact task-specific cancellation file path printed by the command. The delayed runner must keep checking that marker while it waits for Codex to exit, cancel after 10 minutes, and never force-close Codex.
+Use `scripts/start-delayed-install.ps1 -DelaySeconds 60 -ConfirmedByUser -AutoCloseCodexAcknowledged`. Tell the user the exact task-specific cancellation file path printed by the command. The visible delayed runner waits 60 seconds, requests graceful App closure, ends remaining Codex/ChatGPT processes after 15 seconds, installs with `-NoLaunch`, and keeps its window open with either success information or the exact rollback command.
+
+The final paragraph before ending the Codex-hosted conversation must say, in the user's language: **Codex App will close automatically and patching will begin in 60 seconds. Do not close any command window that appears. If the final stage fails, keep that window open and run the rollback command printed there.** Include the cancellation file path in the same paragraph.
 
 ## Rollback
 
