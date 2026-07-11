@@ -31,14 +31,19 @@ This project modifies and re-signs the installed Codex App package. Store update
 2. 给出完整命令，让用户在保存说明后自行从 PowerShell 运行。
 3. 只有用户明确坚持、确认理解会话中断和包体重装风险后，才使用本仓库的 60 秒延时自运行模式。
 
-Give the repository to an agent that does not depend on the running Codex App. Ask it to use the bundled Skill:
+Give the repository to an agent that does not depend on the running Codex App. Do not assume that attaching or naming a Skill makes every Agent read it. Require the Agent to open the full file first:
 
 ```text
-Use $codex-pet-real-mouse-look to inspect this PC, explain risks in plain language,
-run a dry-run, and install only after I explicitly confirm.
+Before doing anything, read `skill/codex-pet-real-mouse-look/SKILL.md` in full and
+treat every Mandatory Response Card as binding. In your first reply, state which
+Card applies. Do not run any repository script until the Skill permits it. Then
+inspect this PC, explain risks in plain language, run a DryRun, and install only
+after I explicitly confirm.
 ```
 
 Skill 目录：`skill/codex-pet-real-mouse-look/`
+
+支持原生 Skill 的 Agent 也可以显式调用 `$codex-pet-real-mouse-look`，但仍应确认它确实读取了正文，而不是只识别名称。对于不支持 Skill 的 Agent，直接把完整 `SKILL.md` 内容放进上下文。
 
 ## 手动流程 / Manual workflow
 

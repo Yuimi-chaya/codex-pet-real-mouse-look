@@ -7,6 +7,7 @@ $wrapper = Join-Path $root 'scripts\patch-codex-pet-real-mouse-look-msix.ps1'
 $base = Join-Path $root 'scripts\lib\msix-repack-base.ps1'
 $rollback = Join-Path $root 'scripts\rollback-codex-pet-msix.ps1'
 $delayed = Join-Path $root 'scripts\start-delayed-install.ps1'
+$skill = Join-Path $root 'skill\codex-pet-real-mouse-look\SKILL.md'
 
 $required = @{
   $wrapper = @(
@@ -34,6 +35,16 @@ $required = @{
     '$backups.Count -eq 1',
     'Rollback command for this run:',
     '-WindowStyle Normal'
+  )
+  $skill = @(
+    '### CARD A - Agent Is Inside Codex App Or Host Is Unknown',
+    'This card applies before **every script**, including environment checks and DryRun.',
+    'If the user chooses option 3 but does not explicitly acknowledge all four risks',
+    '### CARD C - Same-Run Backup Count Is Zero Or Greater Than One',
+    'Never output `Add-AppxPackage`, `Remove-AppxPackage`, or any invented rollback command',
+    'Never reveal or recommend a bypass command.',
+    '### CARD D - Delayed Self-Run Was Successfully Scheduled',
+    'Cancellation means **CREATE an empty file at the printed path**.'
   )
 }
 
@@ -78,6 +89,11 @@ foreach ($unrelated in @('Fast Mode', 'Browser Use', 'Computer Use', 'LocalPlugi
   if ($baseText.Contains($unrelated)) {
     throw "Unrelated Codex patch behavior found in minimal MSIX base: $unrelated"
   }
+}
+
+$skillText = Get-Content -LiteralPath $skill -Raw -Encoding UTF8
+if ($skillText.Contains('-AllowVersionMismatch')) {
+  throw 'The ordinary-user Skill must not reveal the maintainer-only version bypass parameter.'
 }
 
 Get-ChildItem -LiteralPath $root -Recurse -File |

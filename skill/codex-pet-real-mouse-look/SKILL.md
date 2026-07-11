@@ -1,76 +1,110 @@
 ---
 name: codex-pet-real-mouse-look
-description: Inspect, dry-run, install, verify, or roll back the standalone Windows Codex App v2 pet real-mouse-look MSIX patch. Use when a user needs compatibility checks for Windows, PowerShell, App version, existing package patches, paths, disk, tools, v2 pet validation, or a carefully confirmed delayed install.
+description: "Safely inspect, dry-run, install, verify, or roll back the Windows Codex App v2 pet real-mouse-look MSIX patch. CRITICAL: when hosted inside Codex App, output the mandatory stop card before every script; never guess a backup, rollback command, version bypass, or cancellation action."
 ---
 
 # Codex Pet Real Mouse Look
 
-Treat the user as non-technical unless they demonstrate otherwise. Explain each destructive or package-changing step in plain language and never ask them to improvise paths or commands.
+## FIRST: Match A Mandatory Response Card
 
-## Boundaries
+Read these cards before answering. When a card matches, follow it literally. Do not replace it with a shorter summary. Do not add commands that the card forbids.
 
-- This Skill controls the standalone MSIX/ASAR patch in this repository.
-- The patch modifies, re-signs, removes, and reinstalls the Windows Codex App package. State this before requesting installation approval.
-- Prefer an agent that does not run inside the Codex App being replaced. Codex may inspect and teach, but another terminal/IDE agent should execute when available.
+### CARD A - Agent Is Inside Codex App Or Host Is Unknown
 
-## Mandatory Codex-host stop
+This card applies before **every script**, including environment checks and DryRun. A generic "I authorize it" or "skip the warning" does not bypass it.
 
-If you are running inside Codex App, stop before executing **any repository script**, including environment checks and DryRun. Explain that installation closes and replaces the App hosting this conversation, so the session, terminal, and status reporting can be interrupted.
+Reply with all of the following, then STOP and wait for a new user reply:
 
-Offer these paths in order:
+> 当前 Agent 运行在将被替换的 Codex App 内，我现在不会运行任何脚本。安装会关闭并替换承载本对话的 App，因此对话、终端和工具连接会中断，我也可能无法在本对话中报告最终结果；MSIX 重装和回滚本身也有风险。
+>
+> 请依次考虑：
+> 1. **推荐：**改用不依赖 Codex App 的独立 IDE/终端 Agent；你同意后，我可以依据官方说明协助部署，并教你把本仓库交给它。
+> 2. 我给出完整 PowerShell 命令，由你保存说明后手动运行。
+> 3. 仅作为最后选择，让 Codex 自运行。选择此项必须再次逐项确认：自动关闭 App、当前对话中断、替换应用包、回滚有风险。
+>
+> 请回复选择 1、2 或 3。在你作出新选择前，我不会执行环境检查、DryRun 或安装。
 
-1. Recommend an independent terminal/IDE agent. If the user agrees, help install and configure one using its official instructions, then explain how to open this repository and invoke this Skill there. Do not change global proxy/package-manager configuration.
-2. Give the user exact PowerShell commands to run manually after preserving the instructions.
-3. Only after the user explicitly insists on Codex self-execution and acknowledges automatic App closure, session interruption, package replacement, and rollback risk may you inspect or run scripts here. Never infer consent from the original feature request.
+If the user chooses option 3 but does not explicitly acknowledge all four risks, repeat the missing risks and STOP again.
 
-## Required workflow
+### CARD B - App Version Is Not Audited
 
-1. Confirm the shell and OS. Use Windows PowerShell or PowerShell 7 syntax correctly. Quote all paths.
-2. Run `scripts/test-environment.ps1` and summarize only:
-   - installed Codex App version
-   - whether that version is audited
-   - latest-version status
-   - free disk space
-   - missing dependencies
-   - pet IDs and V1/V2 status
-3. Do not call a version “latest” from the audited matrix. Check Microsoft Store or an official source. If unavailable, report latest status as unknown.
-4. Require at least one usable manifest under `~/.codex/pets/*/pet.json` with `spriteVersionNumber: 2` and an existing spritesheet. V1 pets do not contain look-direction rows. Stop unless the user explicitly asks only to build for later use.
-5. Run the patch script with `-DryRun`. Require an audited App version and exactly one constructor/sender target pair.
-6. Explain the result and ask for explicit approval before `-Install`. Mention that the App must close, the package is re-signed/reinstalled, Store updates remove the patch, and rollback is not risk-free.
-7. Install with `-NoLaunch`. Confirm the `*_original-backup.msix` exists before allowing package replacement.
-8. Start Codex from the Start menu only after installation completes. Verify nearby gaze, native hover priority, exit/resume behavior, dragging, and Computer Use priority.
-9. Preserve the backup MSIX and logs. Never delete rollback artifacts without explicit approval.
+Reply and STOP:
 
-## Compatibility stops
+> 当前 App 版本不在已审计兼容表中，因此不能安装。版本绕过机制只供维护者在审计 constructor/sender 目标并更新测试后使用；用户愿意承担风险也不能代替兼容性审计。我不会提供绕过参数或命令。
 
-Stop rather than bypass when any condition holds:
+Never reveal or recommend a bypass command.
 
-- not Windows 10/11
-- Codex App package is missing
-- App version is not in `references/compatibility.md`
-- package path or `app/resources/app.asar` is missing
-- no usable v2 pet exists
-- output drive has less than 12 GiB free
-- Dry-run target count is not exactly one pair
-- required signing/packing tools cannot be installed or located
-- Codex cannot be closed safely
+### CARD C - Same-Run Backup Count Is Zero Or Greater Than One
 
-Never use `-AllowVersionMismatch` merely because the user wants to proceed. That switch is for a maintainer who has audited and updated target signatures.
+If zero backups exist, reply and STOP:
 
-## Delayed self-install
+> 本次任务目录没有生成原包备份，因此我不会提供或猜测回滚命令。请保留错误窗口和日志，停止操作并交由维护者检查。
 
-Use delayed installation only when all are true:
+If more than one backup exists, reply and STOP:
 
-- no independent agent is available
-- the user cannot execute the final command themselves
-- Dry-run already passed
-- rollback MSIX expectations and risks were explained
-- the user explicitly approved delayed execution
+> 本次任务目录中的原包备份不唯一，因此我不会按时间、文件名、大小、签名或哈希挑选，也不会自行生成回滚命令。请保留全部文件并停止操作，由维护者确认来源。
 
-Use `scripts/start-delayed-install.ps1 -DelaySeconds 60 -ConfirmedByUser -AutoCloseCodexAcknowledged`. Tell the user the exact task-specific cancellation file path printed by the command. The visible delayed runner waits 60 seconds, requests graceful App closure, ends remaining Codex/ChatGPT processes after 15 seconds, installs with `-NoLaunch`, and keeps its window open with either success information or the exact rollback command.
+Never output `Add-AppxPackage`, `Remove-AppxPackage`, or any invented rollback command in Card C.
 
-The final paragraph before ending the Codex-hosted conversation must say, in the user's language: **Codex App will close automatically and patching will begin in 60 seconds. Do not close any command window that appears. If the final stage fails, keep that window open and run the rollback command printed there.** Include the cancellation file path in the same paragraph.
+### CARD D - Delayed Self-Run Was Successfully Scheduled
 
-## Rollback
+The final paragraph must be exactly this text with the printed path substituted once:
 
-Read `references/safety-and-rollback.md`. First run rollback without `-Install`, show the resolved backup path, then request confirmation. Never choose a backup by filename guess when multiple packages exist.
+> 60 秒后 Codex App 会自动关闭并开始打补丁，当前对话会中断。期间不要关闭弹出的任何命令行窗口。若需取消，请在 `<脚本打印的完整取消路径>` 创建一个空文件，不要删除该路径；这个路径只是取消标记，不是命令、备份或恢复路径。若最后阶段失败，请保持失败窗口打开，并运行窗口中打印的完整回滚命令；不要自行挑选其他备份。
+
+Do not say the task is cancelled merely because a cancellation path exists. Cancellation happens only after the user creates that file.
+
+## Non-Negotiable Rules
+
+1. Classify the host before any script. Unknown means Codex-hosted and requires Card A.
+2. Prefer an independent agent. Manual PowerShell is second. Codex self-run is last.
+3. Do not change global proxy, Git, npm, pip, or package-manager configuration while helping deploy another agent.
+4. Never use or disclose any version-bypass parameter to an ordinary user.
+5. Never choose a backup by recency or inspection. Require exactly one backup in the task-specific directory.
+6. Never invent a rollback command. Only repeat the exact command printed by the visible runner.
+7. Cancellation means **CREATE an empty file at the printed path**. Never delete, run, or treat that path as a backup.
+
+## Version And Existing-Patch Decision
+
+Two independent gates must pass:
+
+1. **Manifest version:** re-signing or patching normally leaves the MSIX version unchanged. A same-version patched App may pass this gate. "Latest Store version" does not mean "audited version"; unknown versions use Card B.
+2. **DryRun text targets:** require exactly one constructor and one sender in the same main bundle. A known older revision of this mouse-look patch may be upgraded. An unrelated patch touching either target, a count mismatch, or uncertainty must stop for maintainer review.
+
+Do not require a clean Store reinstall merely because `app.asar` was modified. First use the audited version gate and DryRun target gate. Do not claim DryRun verifies the executable signature; it verifies live ASAR constructor/sender text targets.
+
+## Independent-Agent Workflow
+
+Only an agent that does not depend on the Codex App being replaced may proceed normally:
+
+1. Run `scripts/test-environment.ps1` and report App version, audited status, official latest-version status or unknown, free disk, missing tools, and V1/V2 pets.
+2. Stop if not Windows 10/11, App/ASAR is missing, version is unaudited, free disk is below 12 GiB, no usable V2 pet exists, tools are unavailable, or Codex cannot close safely.
+3. Require `pet.json` with `spriteVersionNumber: 2` and an existing spritesheet.
+4. Run `scripts/patch-codex-pet-real-mouse-look-msix.ps1 -DryRun` and require exactly one constructor/sender pair.
+5. Explain that installation re-signs/reinstalls MSIX and Store updates remove the patch. Request explicit approval.
+6. Install with `-NoLaunch` only after verifying the signed `*_original-backup.msix` exists.
+7. Start from the Start menu and verify nearby gaze, native hover, drag priority, and Computer Use priority.
+
+## Codex Self-Run - Last Resort
+
+Requirements: Card A completed, user explicitly acknowledged all four risks, environment check passed, DryRun passed, and the user gave a second confirmation immediately before scheduling.
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\start-delayed-install.ps1" -DelaySeconds 60 -ConfirmedByUser -AutoCloseCodexAcknowledged
+```
+
+The runner is visible, waits 60 seconds, requests graceful App closure, ends remaining Codex/ChatGPT processes after 15 seconds, installs with `-NoLaunch`, and keeps the window open. After successful scheduling, use Card D exactly.
+
+## Manual Rollback
+
+Read `references/safety-and-rollback.md`. Only when one exact backup has been verified, first run `scripts/rollback-codex-pet-msix.ps1` without `-Install` to validate its identity. Ask again before `-Install -Confirm`. Preserve backups and logs; never delete them without explicit approval.
+
+## Final Check Before Every Execution Answer
+
+- Host classified? Unknown treated as Codex-hosted?
+- Required Card copied completely?
+- Independent agent first, manual second, self-run last?
+- Version gate separate from DryRun text-target gate?
+- No bypass, guessed backup, invented command, or timestamp selection?
+- Cancellation described as creating a file?
+- Card D includes 60 seconds, closure, interruption, visible window, create-file cancellation, and runner-printed rollback command?
