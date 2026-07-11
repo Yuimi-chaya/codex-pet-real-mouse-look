@@ -108,6 +108,20 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\start-delayed
 
 本仓库只处理 Windows Codex App V2 桌宠真实鼠标跟随及其安全安装、验证和回滚流程，不修改用户的宠物图片或对话数据。
 
+## 免责声明 / Disclaimer
+
+本项目会修改、重新打包、重新签名、卸载并重新安装 Windows Codex App 的 MSIX 包，因此存在安装失败、应用暂时不可用、设置或本地状态异常、与其他补丁冲突以及需要手动恢复等风险。微软商店灰度更新、Codex App 内部结构变化、Windows 环境差异、第三方修改和用户本机状态均可能导致未被当前测试覆盖的结果。
+
+本项目已经尽力提供受审计版本限制、V2 宠物检查、DryRun 目标签名校验、原包备份、任务独立输出目录、失败停止和回滚工具，以降低误操作和不可恢复故障的概率；这些措施不能保证在所有设备、版本和修改组合下都能成功，也不能替代用户对重要数据和当前环境所做的独立备份。
+
+使用、复制或运行本项目，即表示你已经阅读并理解上述风险，自愿决定继续，并同意自行承担由使用或无法使用本项目所产生的后果。在适用法律允许的最大范围内，项目作者及贡献者不对数据丢失、配置损坏、应用不可用、业务中断或其他直接、间接、附带或后续损失承担责任。若你不同意这些条件，或无法确认备份和回滚条件，请不要运行安装脚本。
+
+This project modifies, repackages, re-signs, removes, and reinstalls the Windows Codex App MSIX package. Risks include installation failure, temporary App unavailability, settings or local-state problems, conflicts with other patches, and manual recovery. Store rollouts, internal App changes, Windows differences, third-party modifications, and local machine state may produce outcomes not covered by current testing.
+
+The project provides audited-version gates, v2 pet checks, DryRun target-signature validation, an original-package backup, task-specific output directories, fail-stop behavior, and rollback tooling to reduce risk. These safeguards cannot guarantee success on every device, version, or patch combination and do not replace the user's own backup of important data and environment state.
+
+By using, copying, or running this project, you acknowledge these risks, choose to proceed at your own discretion, and accept responsibility for the outcome. To the maximum extent permitted by applicable law, the authors and contributors are not liable for data loss, configuration damage, App unavailability, interruption, or other direct, indirect, incidental, or consequential damages arising from use of or inability to use this project. Do not run the installer if you disagree or cannot confirm suitable backup and rollback conditions.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
