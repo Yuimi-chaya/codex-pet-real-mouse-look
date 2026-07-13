@@ -7,7 +7,7 @@ The script copies the installed Codex package, extracts and edits `app/resources
 ## Required safeguards
 
 - Run environment check and Dry-run first.
-- Use only audited App versions.
+- Require strict DryRun structural compatibility for every App version; human-tested versions are preferred but are not the sole gate.
 - Keep at least 12 GiB free on the output drive.
 - Before patching, create and sign `*_original-backup.msix` from the copied unmodified package layout.
 - Install with `-NoLaunch`; start from the Start menu after success.

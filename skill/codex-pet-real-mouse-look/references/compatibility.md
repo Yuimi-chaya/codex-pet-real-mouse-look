@@ -1,14 +1,15 @@
 # Compatibility
 
-## Audited App versions
+## Known App versions
 
-| Codex App | Chromium | Status | Notes |
-|---|---:|---|---|
-| `26.707.3748.0` | `150` | Audited and human-tested | V2 look, 480px activation, native hover priority |
+| Codex App | Status | Notes |
+|---|---|---|
+| `26.707.3748.0` | Human-tested | Install, rollback, V2 look, 480px activation, native hover priority |
+| `26.707.8479.0` | Structure-verified | Constructor/sender event flow matches after minifier-symbol normalization; installation not yet human-tested |
 
-An audited version is not necessarily the latest Microsoft Store version. Verify latest status separately. Unknown versions stop by default until a maintainer audits the main-process constructor and sender signatures, updates tests, and performs install/rollback validation.
+A known or human-tested version is not necessarily the latest Microsoft Store version. Microsoft Store rollout can vary by account, region, device, and time. An external Agent must report `unknown` when it cannot obtain an authoritative per-user result; it must never translate “no result” into “up to date.”
 
-The version gate reads the installed package manifest. Re-signing or patching an App normally leaves that version unchanged and does not fail this gate by itself. DryRun separately validates the live ASAR constructor/sender text target signatures: known earlier revisions of this mouse-look patch can be upgraded, while an unrelated patch touching the same constructor/sender must stop for maintainer review.
+The version check reads the installed package manifest. Re-signing or patching an App normally leaves that version unchanged. Version membership is informational rather than the sole compatibility gate: every version must pass DryRun against the live ASAR. The matcher accepts minifier-only changes to the native-position controller, subscription, and Electron screen aliases while requiring the complete constructor/sender event flow to be unique. Known earlier revisions of this mouse-look patch can be upgraded; unrelated changes, partial matches, duplicate targets, or ambiguous aliases stop for maintainer review.
 
 ## Pet format
 

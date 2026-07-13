@@ -7,11 +7,18 @@ $wrapper = Join-Path $root 'scripts\patch-codex-pet-real-mouse-look-msix.ps1'
 $base = Join-Path $root 'scripts\lib\msix-repack-base.ps1'
 $rollback = Join-Path $root 'scripts\rollback-codex-pet-msix.ps1'
 $delayed = Join-Path $root 'scripts\start-delayed-install.ps1'
+$environment = Join-Path $root 'scripts\test-environment.ps1'
 $skill = Join-Path $root 'skill\codex-pet-real-mouse-look\SKILL.md'
 
 $required = @{
   $wrapper = @(
     'h=o<=480&&Date.now()-this.realMouseLookLastMoveMs<=1400&&!u',
+    '$constructorTargetPattern = [regex]::new',
+    '$classStartPattern = [regex]::new',
+    '$cursorFallbackPattern = [regex]::new',
+    '$constructorClassIndex -ne $senderClassIndex',
+    '$verifiedConstructorCount -ne 1 -or $verifiedSenderCount -ne 1',
+    '[string[]]$HumanTestedAppVersions',
     '[switch]$GenerateOnly',
     "'-PatchHookPath', `$petPatchHook"
   )
@@ -36,12 +43,20 @@ $required = @{
     'Rollback command for this run:',
     '-WindowStyle Normal'
   )
+  $environment = @(
+    'Get-CodexStoreUpdateStatus',
+    "status = 'update-available'",
+    "status = 'unknown'",
+    'codexCompatibilityStatus',
+    'do not report this App as up to date'
+  )
   $skill = @(
     '### CARD A - Agent Is Inside Codex App Or Host Is Unknown',
     'This card applies before **every script**, including environment checks and DryRun.',
     'If the user chooses option 3 but does not explicitly acknowledge all four risks',
     '### CARD C - Same-Run Backup Count Is Zero Or Greater Than One',
     'Never output `Add-AppxPackage`, `Remove-AppxPackage`, or any invented rollback command',
+    '### CARD B - ASAR Compatibility Cannot Be Proven',
     'Never reveal or recommend a bypass command.',
     '### CARD D - Delayed Self-Run Was Successfully Scheduled',
     'Cancellation means **CREATE an empty file at the printed path**.'
@@ -94,6 +109,11 @@ foreach ($unrelated in @('Fast Mode', 'Browser Use', 'Computer Use', 'LocalPlugi
 $skillText = Get-Content -LiteralPath $skill -Raw -Encoding UTF8
 if ($skillText.Contains('-AllowVersionMismatch')) {
   throw 'The ordinary-user Skill must not reveal the maintainer-only version bypass parameter.'
+}
+
+$wrapperText = Get-Content -LiteralPath $wrapper -Raw -Encoding UTF8
+if ($wrapperText.Contains('AllowVersionMismatch') -or $wrapperText.Contains('$installedVersion -notin')) {
+  throw 'The patch wrapper must use strict structural compatibility instead of a version bypass or hard version allowlist.'
 }
 
 Get-ChildItem -LiteralPath $root -Recurse -File |

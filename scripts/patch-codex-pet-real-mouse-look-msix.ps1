@@ -2,8 +2,7 @@
 param(
   [string]$AppPath,
   [string]$OutputRoot = (Join-Path ([Environment]::GetFolderPath('UserProfile')) 'Downloads\codex-pet-real-mouse-look'),
-  [string[]]$SupportedAppVersions = @('26.707.3748.0'),
-  [switch]$AllowVersionMismatch,
+  [string[]]$HumanTestedAppVersions = @('26.707.3748.0'),
   [switch]$SkipV2PetCheck,
   [switch]$InstallPrerequisites,
   [switch]$Install,
@@ -51,8 +50,10 @@ if ($null -eq $package) {
   Fail 'OpenAI Codex App is not installed for the current Windows user'
 }
 $installedVersion = $package.Version.ToString()
-if (-not $AllowVersionMismatch -and $installedVersion -notin $SupportedAppVersions) {
-  Fail "Codex App version $installedVersion has not been audited. Supported: $($SupportedAppVersions -join ', '). Update this repository's compatibility matrix before using -AllowVersionMismatch."
+if ($installedVersion -in $HumanTestedAppVersions) {
+  Write-Log "Codex App version $installedVersion is human-tested; strict ASAR target validation is still required"
+} else {
+  Write-Log "Codex App version $installedVersion is not human-tested; proceeding only to strict ASAR target validation"
 }
 
 if (-not $SkipV2PetCheck) {
@@ -115,10 +116,14 @@ function Invoke-PatchAppAsar {
     Fail "main bundle not found under: $viteBuildDir"
   }
 
-  $constructorTarget = 'this.nativePositionController=new c5({getCurrentWindow:()=>this.window,retryEnabled:this.nativeCompositionSupported,setPosition:e=>this.compositionHost.setOverlayWindowPosition(e),shouldCancelWindowMoveResync:()=>this.layoutMode===`native`&&this.isOverlayWindowPointerDragActive()}),io(e=>{this.setComputerUseCursorLocation(e)})}'
+  $constructorTargetPattern = [regex]::new('this\.nativePositionController=new (?<controller>[A-Za-z_$][A-Za-z0-9_$]*)\(\{getCurrentWindow:\(\)=>this\.window,retryEnabled:this\.nativeCompositionSupported,setPosition:e=>this\.compositionHost\.setOverlayWindowPosition\(e\),shouldCancelWindowMoveResync:\(\)=>this\.layoutMode===`native`&&this\.isOverlayWindowPointerDragActive\(\)\}\),(?<subscription>[A-Za-z_$][A-Za-z0-9_$]*)\(e=>\{this\.setComputerUseCursorLocation\(e\)\}\)\}', [System.Text.RegularExpressions.RegexOptions]::CultureInvariant)
+  $classStartPattern = [regex]::new('class(?: [A-Za-z_$][A-Za-z0-9_$]*)?\{', [System.Text.RegularExpressions.RegexOptions]::CultureInvariant)
+  $screenCallPattern = [regex]::new('[A-Za-z_$][A-Za-z0-9_$]*\.screen\.getCursorScreenPoint\(\)', [System.Text.RegularExpressions.RegexOptions]::CultureInvariant)
+  $cursorFallbackPattern = [regex]::new('refreshCursorAtCurrentMousePosition\(e\)\{if\(e\.isDestroyed\(\)\)return!1;if\(this\.computerUseCursorPoint!=null\)return this\.sendCursorPointToAvatarOverlay\(e,this\.computerUseCursorPoint,!0\);let t=[^;]{1,400}\?\?(?<electron>[A-Za-z_$][A-Za-z0-9_$]*)\.screen\.getCursorScreenPoint\(\)', [System.Text.RegularExpressions.RegexOptions]::CultureInvariant)
   $constructorOldPatch = 'this.nativePositionController=new c5({getCurrentWindow:()=>this.window,retryEnabled:this.nativeCompositionSupported,setPosition:e=>this.compositionHost.setOverlayWindowPosition(e),shouldCancelWindowMoveResync:()=>this.layoutMode===`native`&&this.isOverlayWindowPointerDragActive()}),io(e=>{this.setComputerUseCursorLocation(e)}),this.realMouseLookTimer=setInterval(()=>{let e=this.window;e==null||e.isDestroyed()||!this.rendererReady||this.dragState!=null||this.computerUseCursorPoint!=null||this.sendComputerUseCursorLocationToRenderer(e)},100)}'
   $constructorPreviousPatch = 'this.nativePositionController=new c5({getCurrentWindow:()=>this.window,retryEnabled:this.nativeCompositionSupported,setPosition:e=>this.compositionHost.setOverlayWindowPosition(e),shouldCancelWindowMoveResync:()=>this.layoutMode===`native`&&this.isOverlayWindowPointerDragActive()}),io(e=>{this.setComputerUseCursorLocation(e)}),this.realMouseLookLastPoint=null,this.realMouseLookLastMoveMs=0,this.realMouseLookActive=!1,this.realMouseLookTimer=setInterval(()=>{let e=this.window;if(e==null||e.isDestroyed()||!this.rendererReady||this.dragState!=null||this.computerUseCursorPoint!=null)return;let t=c.screen.getCursorScreenPoint(),n=e.getContentBounds(),r=this.layout?.mascot??{left:0,top:0,width:n.width,height:n.height},i=n.x+r.left+r.width/2,a=n.y+r.top+r.height/2,o=Math.hypot(t.x-i,t.y-a),s=this.realMouseLookLastPoint,l=s==null?1/0:Math.hypot(t.x-s.x,t.y-s.y);l>=2&&(this.realMouseLookLastPoint={x:t.x,y:t.y},this.realMouseLookLastMoveMs=Date.now());let u=o<=480&&Date.now()-this.realMouseLookLastMoveMs<=1400;u?(this.realMouseLookActive=!0,this.sendComputerUseCursorLocationToRenderer(e,t)):this.realMouseLookActive&&(this.realMouseLookActive=!1,this.sendComputerUseCursorLocationToRenderer(e,null))},100)}'
   $constructorPatch = 'this.nativePositionController=new c5({getCurrentWindow:()=>this.window,retryEnabled:this.nativeCompositionSupported,setPosition:e=>this.compositionHost.setOverlayWindowPosition(e),shouldCancelWindowMoveResync:()=>this.layoutMode===`native`&&this.isOverlayWindowPointerDragActive()}),io(e=>{this.setComputerUseCursorLocation(e)}),this.realMouseLookLastPoint=null,this.realMouseLookLastMoveMs=0,this.realMouseLookActive=!1,this.realMouseLookTimer=setInterval(()=>{let e=this.window;if(e==null||e.isDestroyed()||!this.rendererReady||this.dragState!=null||this.computerUseCursorPoint!=null)return;let t=c.screen.getCursorScreenPoint(),n=e.getContentBounds(),r=this.layout?.mascot??{left:0,top:0,width:n.width,height:n.height},i=n.x+r.left+r.width/2,a=n.y+r.top+r.height/2,o=Math.hypot(t.x-i,t.y-a),s=this.realMouseLookLastPoint,l=s==null?1/0:Math.hypot(t.x-s.x,t.y-s.y);l>=2&&(this.realMouseLookLastPoint={x:t.x,y:t.y},this.realMouseLookLastMoveMs=Date.now());let u=t.x>=n.x+r.left&&t.x<=n.x+r.left+r.width&&t.y>=n.y+r.top&&t.y<=n.y+r.top+r.height,h=o<=480&&Date.now()-this.realMouseLookLastMoveMs<=1400&&!u;h?(this.realMouseLookActive=!0,this.sendComputerUseCursorLocationToRenderer(e,t)):this.realMouseLookActive&&(this.realMouseLookActive=!1,this.sendComputerUseCursorLocationToRenderer(e,null))},100)}'
+  $constructorPatchSuffix = $constructorPatch.Substring($constructorPatch.IndexOf(',this.realMouseLookLastPoint=null', [System.StringComparison]::Ordinal))
   $senderTarget = 'sendComputerUseCursorLocationToRenderer(e){if(e.isDestroyed()||!this.rendererReady)return;let t=e.getContentBounds();this.windowManager.sendMessageToWebContents(e.webContents,{type:`avatar-overlay-computer-use-cursor-changed`,point:this.computerUseCursorPoint==null?null:{x:this.computerUseCursorPoint.x-t.x,y:this.computerUseCursorPoint.y-t.y}})}'
   $senderOldPatch = 'sendComputerUseCursorLocationToRenderer(e){if(e.isDestroyed()||!this.rendererReady)return;let t=e.getContentBounds(),n=this.computerUseCursorPoint??c.screen.getCursorScreenPoint();this.windowManager.sendMessageToWebContents(e.webContents,{type:`avatar-overlay-computer-use-cursor-changed`,point:n==null?null:{x:n.x-t.x,y:n.y-t.y}})}'
   $senderPatch = 'sendComputerUseCursorLocationToRenderer(e,t=this.computerUseCursorPoint){if(e.isDestroyed()||!this.rendererReady)return;let n=e.getContentBounds(),r=t;this.windowManager.sendMessageToWebContents(e.webContents,{type:`avatar-overlay-computer-use-cursor-changed`,point:r==null?null:{x:r.x-n.x,y:r.y-n.y}})}'
@@ -128,28 +133,43 @@ function Invoke-PatchAppAsar {
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
     $text = [System.IO.File]::ReadAllText($file.FullName, $utf8NoBom)
     if ($text.Contains('realMouseLookLastMoveMs') -and $text.Contains('h=o<=480&&Date.now()-this.realMouseLookLastMoveMs<=1400&&!u')) {
-      $existingConstructorCount = ($text.Split(@($constructorPatch), [System.StringSplitOptions]::None).Length - 1)
+      $normalizedExistingText = $screenCallPattern.Replace($text, 'c.screen.getCursorScreenPoint()')
+      $existingConstructorCount = ($normalizedExistingText.Split(@($constructorPatchSuffix), [System.StringSplitOptions]::None).Length - 1)
       $existingSenderCount = ($text.Split(@($senderPatch), [System.StringSplitOptions]::None).Length - 1)
       if ($existingConstructorCount -ne 1 -or $existingSenderCount -ne 1) {
         Fail "existing pet patch target mismatch in $($file.FullName): constructor=$existingConstructorCount sender=$existingSenderCount"
+      }
+      $existingConstructorIndex = $normalizedExistingText.IndexOf($constructorPatchSuffix, [System.StringComparison]::Ordinal)
+      $existingSenderIndex = $text.IndexOf($senderPatch, [System.StringComparison]::Ordinal)
+      $existingConstructorClasses = $classStartPattern.Matches($text.Substring(0, $existingConstructorIndex + 1))
+      $existingSenderClasses = $classStartPattern.Matches($text.Substring(0, $existingSenderIndex + 1))
+      if ($existingConstructorClasses.Count -eq 0 -or $existingSenderClasses.Count -eq 0 -or
+          $existingConstructorClasses[$existingConstructorClasses.Count - 1].Index -ne $existingSenderClasses[$existingSenderClasses.Count - 1].Index) {
+        Fail "existing pet patch constructor and sender are not in the same class in $($file.FullName)"
       }
       $patchedFile = $file.FullName
       Write-Log "pet real mouse look patch already present: $patchedFile"
       break
     }
 
-    $constructorSource = $constructorTarget
+    $constructorSource = $null
+    $constructorReplacement = $null
     $senderSource = $senderTarget
-    $constructorCount = ($text.Split(@($constructorSource), [System.StringSplitOptions]::None).Length - 1)
+    $constructorMatches = $constructorTargetPattern.Matches($text)
+    $constructorCount = $constructorMatches.Count
     $senderCount = ($text.Split(@($senderSource), [System.StringSplitOptions]::None).Length - 1)
-    if ($constructorCount -eq 0 -and $senderCount -eq 0) {
+    if ($constructorCount -eq 1 -and $senderCount -eq 1) {
+      $constructorSource = $constructorMatches[0].Value
+    } elseif ($constructorCount -eq 0 -and $senderCount -eq 0) {
       $constructorSource = $constructorOldPatch
+      $constructorReplacement = $constructorPatch
       $senderSource = $senderOldPatch
       $constructorCount = ($text.Split(@($constructorSource), [System.StringSplitOptions]::None).Length - 1)
       $senderCount = ($text.Split(@($senderSource), [System.StringSplitOptions]::None).Length - 1)
     }
     if ($constructorCount -eq 0 -and $senderCount -eq 0) {
       $constructorSource = $constructorPreviousPatch
+      $constructorReplacement = $constructorPatch
       $senderSource = $senderPatch
       $constructorCount = ($text.Split(@($constructorSource), [System.StringSplitOptions]::None).Length - 1)
       $senderCount = ($text.Split(@($senderSource), [System.StringSplitOptions]::None).Length - 1)
@@ -160,8 +180,34 @@ function Invoke-PatchAppAsar {
     if ($constructorCount -ne 1 -or $senderCount -ne 1) {
       Fail "pet look patch target count mismatch in $($file.FullName): constructor=$constructorCount sender=$senderCount"
     }
+    if ([string]::IsNullOrEmpty($constructorSource)) {
+      Fail "pet look patch target classification failed in $($file.FullName)"
+    }
 
-    $text = $text.Replace($constructorSource, $constructorPatch).Replace($senderSource, $senderPatch)
+    $constructorIndex = $text.IndexOf($constructorSource, [System.StringComparison]::Ordinal)
+    $senderIndex = $text.IndexOf($senderSource, [System.StringComparison]::Ordinal)
+    $constructorClasses = $classStartPattern.Matches($text.Substring(0, $constructorIndex + 1))
+    $senderClasses = $classStartPattern.Matches($text.Substring(0, $senderIndex + 1))
+    if ($constructorIndex -lt 0 -or $senderIndex -le $constructorIndex -or $constructorClasses.Count -eq 0 -or $senderClasses.Count -eq 0) {
+      Fail "pet look patch event-flow ordering mismatch in $($file.FullName)"
+    }
+    $constructorClassIndex = $constructorClasses[$constructorClasses.Count - 1].Index
+    $senderClassIndex = $senderClasses[$senderClasses.Count - 1].Index
+    if ($constructorClassIndex -ne $senderClassIndex) {
+      Fail "pet look constructor and sender are not in the same class in $($file.FullName)"
+    }
+
+    if ([string]::IsNullOrEmpty($constructorReplacement)) {
+      $cursorFallbackMatches = $cursorFallbackPattern.Matches($text)
+      if ($cursorFallbackMatches.Count -ne 1) {
+        Fail "pet look Electron cursor fallback mismatch in $($file.FullName): matches=$($cursorFallbackMatches.Count)"
+      }
+      $screenAlias = $cursorFallbackMatches[0].Groups['electron'].Value
+      $dynamicSuffix = $constructorPatchSuffix.Replace('c.screen.getCursorScreenPoint()', "$screenAlias.screen.getCursorScreenPoint()")
+      $constructorReplacement = $constructorSource.Substring(0, $constructorSource.Length - 1) + $dynamicSuffix
+    }
+
+    $text = $text.Replace($constructorSource, $constructorReplacement).Replace($senderSource, $senderPatch)
     [System.IO.File]::WriteAllText($file.FullName, $text, $utf8NoBom)
     $patchedFile = $file.FullName
     Write-Log "pet real mouse look patch result: patched $patchedFile"
@@ -173,8 +219,11 @@ function Invoke-PatchAppAsar {
   }
 
   $verify = [System.IO.File]::ReadAllText($patchedFile, (New-Object System.Text.UTF8Encoding($false)))
-  if (-not ($verify.Contains('realMouseLookLastMoveMs') -and $verify.Contains('h=o<=480&&Date.now()-this.realMouseLookLastMoveMs<=1400&&!u'))) {
-    Fail 'pet look patch verification failed after write'
+  $normalizedVerify = $screenCallPattern.Replace($verify, 'c.screen.getCursorScreenPoint()')
+  $verifiedConstructorCount = ($normalizedVerify.Split(@($constructorPatchSuffix), [System.StringSplitOptions]::None).Length - 1)
+  $verifiedSenderCount = ($verify.Split(@($senderPatch), [System.StringSplitOptions]::None).Length - 1)
+  if ($verifiedConstructorCount -ne 1 -or $verifiedSenderCount -ne 1) {
+    Fail "pet look patch verification failed after write: constructor=$verifiedConstructorCount sender=$verifiedSenderCount"
   }
 
   Write-Log 'repacking app.asar'

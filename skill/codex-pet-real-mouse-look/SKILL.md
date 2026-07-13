@@ -26,11 +26,11 @@ Reply with all of the following, then STOP and wait for a new user reply:
 
 If the user chooses option 3 but does not explicitly acknowledge all four risks, repeat the missing risks and STOP again.
 
-### CARD B - App Version Is Not Audited
+### CARD B - ASAR Compatibility Cannot Be Proven
 
 Reply and STOP:
 
-> 当前 App 版本不在已审计兼容表中，因此不能安装。版本绕过机制只供维护者在审计 constructor/sender 目标并更新测试后使用；用户愿意承担风险也不能代替兼容性审计。我不会提供绕过参数或命令。
+> 当前 App 的 ASAR constructor/sender 目标没有通过严格且唯一的兼容性校验，因此不能安装。版本号相近、用户愿意承担风险或手工判断“看起来一样”都不能代替目标签名校验。我不会提供绕过参数或命令。
 
 Never reveal or recommend a bypass command.
 
@@ -59,28 +59,29 @@ Do not say the task is cancelled merely because a cancellation path exists. Canc
 1. Classify the host before any script. Unknown means Codex-hosted and requires Card A.
 2. Prefer an independent agent. Manual PowerShell is second. Codex self-run is last.
 3. Do not change global proxy, Git, npm, pip, or package-manager configuration while helping deploy another agent.
-4. Never use or disclose any version-bypass parameter to an ordinary user.
+4. Never invent, use, or disclose a version or target-signature bypass to an ordinary user.
 5. Never choose a backup by recency or inspection. Require exactly one backup in the task-specific directory.
 6. Never invent a rollback command. Only repeat the exact command printed by the visible runner.
 7. Cancellation means **CREATE an empty file at the printed path**. Never delete, run, or treat that path as a backup.
 
 ## Version And Existing-Patch Decision
 
-Two independent gates must pass:
+Three independent facts must be kept separate:
 
-1. **Manifest version:** re-signing or patching normally leaves the MSIX version unchanged. A same-version patched App may pass this gate. "Latest Store version" does not mean "audited version"; unknown versions use Card B.
-2. **DryRun text targets:** require exactly one constructor and one sender in the same main bundle. A known older revision of this mouse-look patch may be upgraded. An unrelated patch touching either target, a count mismatch, or uncertainty must stop for maintainer review.
+1. **Installed manifest version:** re-signing or patching normally leaves the MSIX version unchanged. Record whether it is human-tested, but do not reject a newer version solely because its number is absent from the table.
+2. **Store latest status:** an external script cannot prove the latest version for every account, region, device, and staged rollout. `update-available` means stop and update first. `unknown` must be reported as unknown, never rewritten as “latest”; ask the user to run Microsoft Store Library -> Get updates when latest status matters.
+3. **DryRun text targets:** every version requires exactly one structurally compatible constructor and one sender in the same main bundle. Minifier symbol names may change, but the full event-flow contract must match. A known older revision of this mouse-look patch may be upgraded. An unrelated patch touching either target, a count mismatch, or uncertainty uses Card B.
 
-Do not require a clean Store reinstall merely because `app.asar` was modified. First use the audited version gate and DryRun target gate. Do not claim DryRun verifies the executable signature; it verifies live ASAR constructor/sender text targets.
+Do not require a clean Store reinstall merely because `app.asar` was modified. Do not claim DryRun proves the App is the Store latest or verifies the executable signature; it verifies live ASAR constructor/sender compatibility only.
 
 ## Independent-Agent Workflow
 
 Only an agent that does not depend on the Codex App being replaced may proceed normally:
 
-1. Run `scripts/test-environment.ps1` and report App version, audited status, official latest-version status or unknown, free disk, missing tools, and V1/V2 pets.
-2. Stop if not Windows 10/11, App/ASAR is missing, version is unaudited, free disk is below 12 GiB, no usable V2 pet exists, tools are unavailable, or Codex cannot close safely.
+1. Run `scripts/test-environment.ps1` and report App version, human-tested status, Store latest status or unknown, free disk, missing tools, and V1/V2 pets.
+2. Stop if not Windows 10/11, App/ASAR is missing, a known update is available, free disk is below 12 GiB, no usable V2 pet exists, tools are unavailable, or Codex cannot close safely. An unknown Store status is not proof of either latest or outdated; state that limitation explicitly.
 3. Require `pet.json` with `spriteVersionNumber: 2` and an existing spritesheet.
-4. Run `scripts/patch-codex-pet-real-mouse-look-msix.ps1 -DryRun` and require exactly one constructor/sender pair.
+4. Run `scripts/patch-codex-pet-real-mouse-look-msix.ps1 -DryRun` for every App version and require exactly one compatible constructor/sender pair. Use Card B on any mismatch.
 5. Explain that installation re-signs/reinstalls MSIX and Store updates remove the patch. Request explicit approval.
 6. Install with `-NoLaunch` only after verifying the signed `*_original-backup.msix` exists.
 7. Start from the Start menu and verify nearby gaze, native hover, drag priority, and Computer Use priority.
@@ -104,7 +105,7 @@ Read `references/safety-and-rollback.md`. Only when one exact backup has been ve
 - Host classified? Unknown treated as Codex-hosted?
 - Required Card copied completely?
 - Independent agent first, manual second, self-run last?
-- Version gate separate from DryRun text-target gate?
+- Installed version, Store latest status, and DryRun compatibility kept separate?
 - No bypass, guessed backup, invented command, or timestamp selection?
 - Cancellation described as creating a file?
 - Card D includes 60 seconds, closure, interruption, visible window, create-file cancellation, and runner-printed rollback command?

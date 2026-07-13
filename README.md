@@ -8,18 +8,19 @@ This project patches the Windows Codex App package so v2 pets can look toward th
 
 - 这是一个独立的 Windows Codex App 桌宠补丁项目。
 - 它会复制、修改、重新签名并重新安装 Codex App 的 MSIX 包。
-- 微软商店更新会覆盖补丁；每个新 App 版本都必须重新审计兼容性。
+- 微软商店更新会覆盖补丁；每个版本安装前都必须重新执行严格 DryRun，只有相关 ASAR 结构发生变化时才需要维护者更新补丁。
 - 脚本会在安装前生成原包回滚 MSIX，但任何包体修改仍有风险。
 - 真实鼠标转头只适用于 `pet.json` 包含 `"spriteVersionNumber": 2` 的宠物；V1 没有 16 方向转头素材。
-- 当前已审计版本：`26.707.3748.0`。版本不匹配时默认停止。
+- 已完成人工安装测试：`26.707.3748.0`。已完成结构签名核验：`26.707.8479.0`。
 
-This project modifies and re-signs the installed Codex App package. Store updates remove the patch, and unaudited App versions are rejected by default.
+This project modifies and re-signs the installed Codex App package. Store updates remove the patch, and every installed version must pass strict ASAR target validation before installation.
 
 ### App 版本与已有补丁 / App version and existing patches
 
 - 版本检查读取已安装 MSIX 清单版本。重签名或已有补丁通常不会改变版本号，因此不会仅因“已经打过补丁”而失败。
-- `DryRun` 还会检查实际 ASAR 中的 constructor/sender 文本目标签名。当前项目的已知旧版鼠标补丁可以升级；如果其他补丁改动了同一段代码，脚本会停止，避免覆盖未知修改。
-- “已审计”不等于“商店最新版本”。未知版本必须先更新兼容矩阵和目标签名。
+- 版本号不再作为唯一兼容门槛。`DryRun` 会检查实际 ASAR 中 constructor/sender 的完整结构与唯一性，并允许压缩器只改变局部符号名。当前项目的已知旧版鼠标补丁可以升级；如果其他补丁改动同一事件链、目标重复或结构漂移，脚本会停止。
+- “人工测试过”“严格 DryRun 兼容”和“微软商店最新”是三个不同结论。微软商店存在账户、地区、设备与灰度差异，外部脚本查不到权威结果时只会报告 `unknown`，不会假装已经是最新版。
+- 如果环境检查明确报告 `update-available`，请先通过微软商店更新。如果报告 `unknown` 且你必须确认最新版，请在微软商店“库”中手动执行“获取更新”，再重新检查。
 
 ## 推荐使用方式 / Recommended workflow
 
@@ -53,7 +54,7 @@ Skill 目录：`skill/codex-pet-real-mouse-look/`
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\test-environment.ps1"
 ```
 
-检查结果会列出：Windows/PowerShell、Codex App 版本、版本是否已审计、磁盘空间、依赖命令以及所有 V1/V2 宠物。
+检查结果会列出：Windows/PowerShell、Codex App 版本、是否完成人工测试、商店更新状态或 `unknown`、磁盘空间、依赖命令以及所有 V1/V2 宠物。
 
 ### 2. Dry-run
 
@@ -61,7 +62,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\test-environm
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\patch-codex-pet-real-mouse-look-msix.ps1" -DryRun
 ```
 
-Dry-run 必须成功找到且只找到一组受支持的 ASAR 目标。不要因为“看起来差不多”而使用版本绕过。
+每个版本的 Dry-run 都必须成功找到且只找到一组受支持的 ASAR 目标。不要因为“看起来差不多”而绕过结构校验。
 
 ### 3. 构建并安装
 
@@ -112,13 +113,13 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\start-delayed
 
 本项目会修改、重新打包、重新签名、卸载并重新安装 Windows Codex App 的 MSIX 包，因此存在安装失败、应用暂时不可用、设置或本地状态异常、与其他补丁冲突以及需要手动恢复等风险。微软商店灰度更新、Codex App 内部结构变化、Windows 环境差异、第三方修改和用户本机状态均可能导致未被当前测试覆盖的结果。
 
-本项目已经尽力提供受审计版本限制、V2 宠物检查、DryRun 目标签名校验、原包备份、任务独立输出目录、失败停止和回滚工具，以降低误操作和不可恢复故障的概率；这些措施不能保证在所有设备、版本和修改组合下都能成功，也不能替代用户对重要数据和当前环境所做的独立备份。
+本项目已经尽力提供版本记录、V2 宠物检查、严格 DryRun 结构签名校验、原包备份、任务独立输出目录、失败停止和回滚工具，以降低误操作和不可恢复故障的概率；这些措施不能保证在所有设备、版本和修改组合下都能成功，也不能替代用户对重要数据和当前环境所做的独立备份。
 
 使用、复制或运行本项目，即表示你已经阅读并理解上述风险，自愿决定继续，并同意自行承担由使用或无法使用本项目所产生的后果。在适用法律允许的最大范围内，项目作者及贡献者不对数据丢失、配置损坏、应用不可用、业务中断或其他直接、间接、附带或后续损失承担责任。若你不同意这些条件，或无法确认备份和回滚条件，请不要运行安装脚本。
 
 This project modifies, repackages, re-signs, removes, and reinstalls the Windows Codex App MSIX package. Risks include installation failure, temporary App unavailability, settings or local-state problems, conflicts with other patches, and manual recovery. Store rollouts, internal App changes, Windows differences, third-party modifications, and local machine state may produce outcomes not covered by current testing.
 
-The project provides audited-version gates, v2 pet checks, DryRun target-signature validation, an original-package backup, task-specific output directories, fail-stop behavior, and rollback tooling to reduce risk. These safeguards cannot guarantee success on every device, version, or patch combination and do not replace the user's own backup of important data and environment state.
+The project provides version reporting, v2 pet checks, strict DryRun structural validation, an original-package backup, task-specific output directories, fail-stop behavior, and rollback tooling to reduce risk. These safeguards cannot guarantee success on every device, version, or patch combination and do not replace the user's own backup of important data and environment state.
 
 By using, copying, or running this project, you acknowledge these risks, choose to proceed at your own discretion, and accept responsibility for the outcome. To the maximum extent permitted by applicable law, the authors and contributors are not liable for data loss, configuration damage, App unavailability, interruption, or other direct, indirect, incidental, or consequential damages arising from use of or inability to use this project. Do not run the installer if you disagree or cannot confirm suitable backup and rollback conditions.
 
