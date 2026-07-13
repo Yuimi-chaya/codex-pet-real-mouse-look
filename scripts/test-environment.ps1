@@ -66,6 +66,48 @@ function Get-CodexStoreUpdateStatus {
   }
 }
 
+function Get-PetSpritesheetInfo {
+  param(
+    [Parameter(Mandatory = $true)][string]$ManifestDirectory,
+    [string]$SpritesheetPath
+  )
+
+  if ([string]::IsNullOrWhiteSpace($SpritesheetPath)) {
+    return [pscustomobject]@{ path = ''; exists = $false; format = 'missing'; supported = $false }
+  }
+  $path = [System.IO.Path]::GetFullPath((Join-Path $ManifestDirectory $SpritesheetPath))
+  if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+    return [pscustomobject]@{ path = $path; exists = $false; format = 'missing'; supported = $false }
+  }
+
+  $fileLength = (Get-Item -LiteralPath $path).Length
+  $header = New-Object byte[] 30
+  $stream = [System.IO.File]::OpenRead($path)
+  try {
+    $read = $stream.Read($header, 0, $header.Length)
+  } finally {
+    $stream.Dispose()
+  }
+  $isPng = $fileLength -ge 33 -and $read -ge 24 -and
+    $header[0] -eq 0x89 -and $header[1] -eq 0x50 -and $header[2] -eq 0x4e -and $header[3] -eq 0x47 -and
+    $header[4] -eq 0x0d -and $header[5] -eq 0x0a -and $header[6] -eq 0x1a -and $header[7] -eq 0x0a -and
+    $header[8] -eq 0 -and $header[9] -eq 0 -and $header[10] -eq 0 -and $header[11] -eq 13 -and
+    [System.Text.Encoding]::ASCII.GetString($header, 12, 4) -eq 'IHDR' -and
+    ($header[16] -ne 0 -or $header[17] -ne 0 -or $header[18] -ne 0 -or $header[19] -ne 0) -and
+    ($header[20] -ne 0 -or $header[21] -ne 0 -or $header[22] -ne 0 -or $header[23] -ne 0)
+  $riffSize = if ($read -ge 8) { [System.BitConverter]::ToUInt32($header, 4) } else { 0 }
+  $webpChunkSize = if ($read -ge 20) { [System.BitConverter]::ToUInt32($header, 16) } else { 0 }
+  $webpChunkType = if ($read -ge 16) { [System.Text.Encoding]::ASCII.GetString($header, 12, 4) } else { '' }
+  $isWebp = $fileLength -ge 20 -and $read -ge 20 -and
+    [System.Text.Encoding]::ASCII.GetString($header, 0, 4) -eq 'RIFF' -and
+    [System.Text.Encoding]::ASCII.GetString($header, 8, 4) -eq 'WEBP' -and
+    $riffSize -ge 12 -and ([uint64]$riffSize + 8) -le [uint64]$fileLength -and
+    $webpChunkType -in @('VP8 ', 'VP8L', 'VP8X') -and
+    ([uint64]$webpChunkSize + 20) -le ([uint64]$riffSize + 8)
+  $format = if ($isPng) { 'png' } elseif ($isWebp) { 'webp' } else { 'unsupported' }
+  return [pscustomobject]@{ path = $path; exists = $true; format = $format; supported = $format -in @('png', 'webp') }
+}
+
 $package = Get-CodexPackage
 $petsRoot = Join-Path $env:USERPROFILE '.codex\pets'
 $pets = @()
@@ -73,14 +115,19 @@ if (Test-Path -LiteralPath $petsRoot -PathType Container) {
   foreach ($manifest in Get-ChildItem -LiteralPath $petsRoot -Recurse -File -Filter 'pet.json' -ErrorAction SilentlyContinue) {
     try {
       $pet = Get-Content -LiteralPath $manifest.FullName -Raw | ConvertFrom-Json
+      $spritesheet = Get-PetSpritesheetInfo -ManifestDirectory $manifest.DirectoryName -SpritesheetPath ([string]$pet.spritesheetPath)
       $pets += [pscustomobject]@{
         id = [string]$pet.id
         version = if ($pet.spriteVersionNumber) { [int]$pet.spriteVersionNumber } else { 1 }
         manifest = $manifest.FullName
-        spritesheetExists = Test-Path -LiteralPath (Join-Path $manifest.DirectoryName ([string]$pet.spritesheetPath)) -PathType Leaf
+        spritesheetPath = $spritesheet.path
+        spritesheetExists = $spritesheet.exists
+        spritesheetFormat = $spritesheet.format
+        spritesheetFormatSupported = $spritesheet.supported
+        usableV2 = [int]$pet.spriteVersionNumber -eq 2 -and $spritesheet.supported
       }
     } catch {
-      $pets += [pscustomobject]@{ id = $manifest.Directory.Name; version = 0; manifest = $manifest.FullName; spritesheetExists = $false }
+      $pets += [pscustomobject]@{ id = $manifest.Directory.Name; version = 0; manifest = $manifest.FullName; spritesheetPath = ''; spritesheetExists = $false; spritesheetFormat = 'invalid-manifest'; spritesheetFormatSupported = $false; usableV2 = $false }
     }
   }
 }
@@ -95,7 +142,7 @@ foreach ($name in @('node', 'npm', 'npx', 'makeappx.exe', 'signtool.exe')) {
 $version = if ($package) { [string]$package.Version } else { '' }
 $latest = Get-CodexStoreUpdateStatus -InstalledVersion $version
 $result = [ordered]@{
-  status = if ($package -and @($pets | Where-Object { $_.version -eq 2 -and $_.spritesheetExists }).Count -gt 0) { 'ready' } else { 'blocked' }
+  status = if ($package -and @($pets | Where-Object { $_.usableV2 }).Count -gt 0) { 'ready' } else { 'blocked' }
   windows = [Environment]::OSVersion.VersionString
   powershell = $PSVersionTable.PSVersion.ToString()
   powershellEdition = $PSVersionTable.PSEdition
@@ -112,13 +159,14 @@ $result = [ordered]@{
   outputDriveFreeGiB = if ($drive) { [math]::Round($drive.Free / 1GB, 2) } else { $null }
   commands = $commands
   pets = $pets
-  v2PetCount = @($pets | Where-Object { $_.version -eq 2 -and $_.spritesheetExists }).Count
+  v2PetCount = @($pets | Where-Object { $_.usableV2 }).Count
   warnings = @(
     if (-not $package) { 'Codex App is not installed for the current Windows user.' }
     if ($version -and $version -notin $HumanTestedAppVersions) { "Codex App $version is not human-tested; strict DryRun ASAR target validation is required." }
     if ($latest.status -eq 'update-available') { "A newer Codex App version may be available: $($latest.candidateVersion). Update before patching." }
     if ($latest.status -eq 'unknown') { 'The external checker cannot prove Store latest status; do not report this App as up to date.' }
-    if (@($pets | Where-Object { $_.version -eq 2 -and $_.spritesheetExists }).Count -eq 0) { 'No usable v2 pet was found. Look directions require spriteVersionNumber: 2.' }
+    if (@($pets | Where-Object { $_.version -eq 2 -and $_.spritesheetExists -and -not $_.spritesheetFormatSupported }).Count -gt 0) { 'A v2 pet spritesheet exists but is not a recognized PNG or WebP file.' }
+    if (@($pets | Where-Object { $_.usableV2 }).Count -eq 0) { 'No usable v2 pet was found. Look directions require spriteVersionNumber: 2 and a valid PNG or WebP spritesheet.' }
     if ($drive -and $drive.Free -lt 12GB) { 'The output drive has less than 12 GiB free. Repacking may fail.' }
   )
 }

@@ -9,6 +9,7 @@ $rollback = Join-Path $root 'scripts\rollback-codex-pet-msix.ps1'
 $delayed = Join-Path $root 'scripts\start-delayed-install.ps1'
 $environment = Join-Path $root 'scripts\test-environment.ps1'
 $skill = Join-Path $root 'skill\codex-pet-real-mouse-look\SKILL.md'
+$compatibility = Join-Path $root 'skill\codex-pet-real-mouse-look\references\compatibility.md'
 
 $required = @{
   $wrapper = @(
@@ -20,6 +21,11 @@ $required = @{
     '$verifiedConstructorCount -ne 1 -or $verifiedSenderCount -ne 1',
     '[string[]]$HumanTestedAppVersions',
     '[switch]$GenerateOnly',
+    'Get-PetSpritesheetInfo',
+    "@('png', 'webp')",
+    "-eq 'IHDR'",
+    "-in @('VP8 ', 'VP8L', 'VP8X')",
+    '[System.BitConverter]::ToUInt32',
     "'-PatchHookPath', `$petPatchHook"
   )
   $base = @(
@@ -48,7 +54,12 @@ $required = @{
     "status = 'update-available'",
     "status = 'unknown'",
     'codexCompatibilityStatus',
-    'do not report this App as up to date'
+    'do not report this App as up to date',
+    'spritesheetFormatSupported',
+    "@('png', 'webp')",
+    "-eq 'IHDR'",
+    "-in @('VP8 ', 'VP8L', 'VP8X')",
+    '[System.BitConverter]::ToUInt32'
   )
   $skill = @(
     '### CARD A - Agent Is Inside Codex App Or Host Is Unknown',
@@ -59,7 +70,12 @@ $required = @{
     '### CARD B - ASAR Compatibility Cannot Be Proven',
     'Never reveal or recommend a bypass command.',
     '### CARD D - Delayed Self-Run Was Successfully Scheduled',
-    'Cancellation means **CREATE an empty file at the printed path**.'
+    'Cancellation means **CREATE an empty file at the printed path**.',
+    'valid PNG or WebP spritesheet'
+  )
+  $compatibility = @(
+    'Both PNG and WebP spritesheets are supported.',
+    'does not inspect descendant `<img>` elements or CSS background MIME types.'
   )
 }
 

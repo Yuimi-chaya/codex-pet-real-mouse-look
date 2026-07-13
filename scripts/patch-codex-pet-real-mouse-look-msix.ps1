@@ -38,6 +38,48 @@ function Write-Utf8NoBom {
   [System.IO.File]::WriteAllText($Path, $Content, $encoding)
 }
 
+function Get-PetSpritesheetInfo {
+  param(
+    [Parameter(Mandatory = $true)][string]$ManifestDirectory,
+    [string]$SpritesheetPath
+  )
+
+  if ([string]::IsNullOrWhiteSpace($SpritesheetPath)) {
+    return [pscustomobject]@{ Path = ''; Exists = $false; Format = 'missing'; Supported = $false }
+  }
+  $path = [System.IO.Path]::GetFullPath((Join-Path $ManifestDirectory $SpritesheetPath))
+  if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+    return [pscustomobject]@{ Path = $path; Exists = $false; Format = 'missing'; Supported = $false }
+  }
+
+  $fileLength = (Get-Item -LiteralPath $path).Length
+  $header = New-Object byte[] 30
+  $stream = [System.IO.File]::OpenRead($path)
+  try {
+    $read = $stream.Read($header, 0, $header.Length)
+  } finally {
+    $stream.Dispose()
+  }
+  $isPng = $fileLength -ge 33 -and $read -ge 24 -and
+    $header[0] -eq 0x89 -and $header[1] -eq 0x50 -and $header[2] -eq 0x4e -and $header[3] -eq 0x47 -and
+    $header[4] -eq 0x0d -and $header[5] -eq 0x0a -and $header[6] -eq 0x1a -and $header[7] -eq 0x0a -and
+    $header[8] -eq 0 -and $header[9] -eq 0 -and $header[10] -eq 0 -and $header[11] -eq 13 -and
+    [System.Text.Encoding]::ASCII.GetString($header, 12, 4) -eq 'IHDR' -and
+    ($header[16] -ne 0 -or $header[17] -ne 0 -or $header[18] -ne 0 -or $header[19] -ne 0) -and
+    ($header[20] -ne 0 -or $header[21] -ne 0 -or $header[22] -ne 0 -or $header[23] -ne 0)
+  $riffSize = if ($read -ge 8) { [System.BitConverter]::ToUInt32($header, 4) } else { 0 }
+  $webpChunkSize = if ($read -ge 20) { [System.BitConverter]::ToUInt32($header, 16) } else { 0 }
+  $webpChunkType = if ($read -ge 16) { [System.Text.Encoding]::ASCII.GetString($header, 12, 4) } else { '' }
+  $isWebp = $fileLength -ge 20 -and $read -ge 20 -and
+    [System.Text.Encoding]::ASCII.GetString($header, 0, 4) -eq 'RIFF' -and
+    [System.Text.Encoding]::ASCII.GetString($header, 8, 4) -eq 'WEBP' -and
+    $riffSize -ge 12 -and ([uint64]$riffSize + 8) -le [uint64]$fileLength -and
+    $webpChunkType -in @('VP8 ', 'VP8L', 'VP8X') -and
+    ([uint64]$webpChunkSize + 20) -le ([uint64]$riffSize + 8)
+  $format = if ($isPng) { 'png' } elseif ($isWebp) { 'webp' } else { 'unsupported' }
+  return [pscustomobject]@{ Path = $path; Exists = $true; Format = $format; Supported = $format -in @('png', 'webp') }
+}
+
 $basePatchScript = Join-Path $PSScriptRoot 'lib\msix-repack-base.ps1'
 if (-not (Test-Path -LiteralPath $basePatchScript -PathType Leaf)) {
   Fail "base MSIX patch script not found: $basePatchScript"
@@ -63,8 +105,11 @@ if (-not $SkipV2PetCheck) {
     foreach ($manifest in Get-ChildItem -LiteralPath $petsRoot -Recurse -File -Filter 'pet.json' -ErrorAction SilentlyContinue) {
       try {
         $pet = Get-Content -LiteralPath $manifest.FullName -Raw | ConvertFrom-Json
-        if ($pet.spriteVersionNumber -eq 2) {
-          $v2Pets += [pscustomobject]@{ Id = $pet.id; Manifest = $manifest.FullName }
+        $spritesheet = Get-PetSpritesheetInfo -ManifestDirectory $manifest.DirectoryName -SpritesheetPath ([string]$pet.spritesheetPath)
+        if ($pet.spriteVersionNumber -eq 2 -and $spritesheet.Supported) {
+          $v2Pets += [pscustomobject]@{ Id = $pet.id; Manifest = $manifest.FullName; Spritesheet = $spritesheet.Path; Format = $spritesheet.Format }
+        } elseif ($pet.spriteVersionNumber -eq 2) {
+          Write-Log "warning: v2 pet has no recognized PNG or WebP spritesheet: $($manifest.FullName)"
         }
       } catch {
         Write-Log "warning: could not parse pet manifest: $($manifest.FullName)"
@@ -72,9 +117,9 @@ if (-not $SkipV2PetCheck) {
     }
   }
   if ($v2Pets.Count -eq 0) {
-    Fail 'No Codex v2 pet was found. Real-mouse look requires pet.json with spriteVersionNumber: 2 and look-direction rows.'
+    Fail 'No usable Codex v2 pet was found. Real-mouse look requires pet.json with spriteVersionNumber: 2 and a valid PNG or WebP spritesheet with look-direction rows.'
   }
-  Write-Log "v2 pets: $($v2Pets.Id -join ', ')"
+  Write-Log "v2 pets: $(@($v2Pets | ForEach-Object { "$($_.Id) [$($_.Format)]" }) -join ', ')"
 }
 
 $generatedRoot = Join-Path $OutputRoot 'pet-look-wrapper'

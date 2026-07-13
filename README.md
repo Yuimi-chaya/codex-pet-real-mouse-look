@@ -11,6 +11,7 @@ This project patches the Windows Codex App package so v2 pets can look toward th
 - 微软商店更新会覆盖补丁；每个版本安装前都必须重新执行严格 DryRun，只有相关 ASAR 结构发生变化时才需要维护者更新补丁。
 - 脚本会在安装前生成原包回滚 MSIX，但任何包体修改仍有风险。
 - 真实鼠标转头只适用于 `pet.json` 包含 `"spriteVersionNumber": 2` 的宠物；V1 没有 16 方向转头素材。
+- V2 spritesheet 支持 PNG 和 WebP。新版 App 从零创建的宠物可能使用 WebP；本补丁修改的是主进程鼠标事件链，不依赖 `<img>`、CSS 背景或具体图片格式。
 - 已完成人工安装测试：`26.707.3748.0`。已完成结构签名核验：`26.707.8479.0`。
 
 This project modifies and re-signs the installed Codex App package. Store updates remove the patch, and every installed version must pass strict ASAR target validation before installation.
@@ -54,7 +55,7 @@ Skill 目录：`skill/codex-pet-real-mouse-look/`
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\test-environment.ps1"
 ```
 
-检查结果会列出：Windows/PowerShell、Codex App 版本、是否完成人工测试、商店更新状态或 `unknown`、磁盘空间、依赖命令以及所有 V1/V2 宠物。
+检查结果会列出：Windows/PowerShell、Codex App 版本、是否完成人工测试、商店更新状态或 `unknown`、磁盘空间、依赖命令，以及所有 V1/V2 宠物的 spritesheet 路径和 PNG/WebP 格式。
 
 ### 2. Dry-run
 

@@ -24,8 +24,10 @@ V2 requires:
 ```json
 {
   "spriteVersionNumber": 2,
-  "spritesheetPath": "spritesheet.png"
+  "spritesheetPath": "spritesheet.webp"
 }
 ```
+
+Both PNG and WebP spritesheets are supported. Newly created pets on newer App builds may use WebP, while older pets may still use PNG. The MSIX patch modifies the main-process cursor event path and does not inspect descendant `<img>` elements or CSS background MIME types.
 
 V2 uses an 8x11 atlas: 9 standard animation rows plus 16 look directions in rows 9-10. V1 pets lack these look-direction rows.

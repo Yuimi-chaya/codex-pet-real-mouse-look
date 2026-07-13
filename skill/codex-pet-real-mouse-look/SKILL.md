@@ -80,7 +80,7 @@ Only an agent that does not depend on the Codex App being replaced may proceed n
 
 1. Run `scripts/test-environment.ps1` and report App version, human-tested status, Store latest status or unknown, free disk, missing tools, and V1/V2 pets.
 2. Stop if not Windows 10/11, App/ASAR is missing, a known update is available, free disk is below 12 GiB, no usable V2 pet exists, tools are unavailable, or Codex cannot close safely. An unknown Store status is not proof of either latest or outdated; state that limitation explicitly.
-3. Require `pet.json` with `spriteVersionNumber: 2` and an existing spritesheet.
+3. Require `pet.json` with `spriteVersionNumber: 2` and a valid PNG or WebP spritesheet. Newly created pets may use WebP; do not reject them merely because older examples use PNG.
 4. Run `scripts/patch-codex-pet-real-mouse-look-msix.ps1 -DryRun` for every App version and require exactly one compatible constructor/sender pair. Use Card B on any mismatch.
 5. Explain that installation re-signs/reinstalls MSIX and Store updates remove the patch. Request explicit approval.
 6. Install with `-NoLaunch` only after verifying the signed `*_original-backup.msix` exists.
